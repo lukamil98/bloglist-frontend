@@ -1,88 +1,54 @@
 const express = require("express")
 const router = express.Router()
-const User = require("./models/user")
-const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
+const Blog = require("./models/blog")
 
-// Route to handle user registration
-router.post("/api/users", async (req, res) => {
-  const { username, password, name } = req.body
+// Middleware to verify JWT token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization
 
-  // Check if username, password, and name are provided
-  if (!username || !password || !name) {
-    return res
-      .status(400)
-      .json({ error: "Username, password, and name are required" })
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Token is required" })
   }
 
-  // Check if username and password meet length requirements
-  if (username.length < 3 || password.length < 3) {
-    return res.status(400).json({
-      error: "Username and password must be at least 3 characters long",
-    })
+  const token = authHeader.split(" ")[1]
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    req.user = decoded
+    next()
+  } catch (error) {
+    console.error("Error verifying token:", error)
+    return res.status(401).json({ error: "Invalid token" })
   }
+}
+
+// Route handler for adding new blogs
+router.post("/api/blogs", authenticateToken, async (req, res) => {
+  const { title, author, url, likes } = req.body
 
   try {
-    // Check if the username is already taken
-    const existingUser = await User.findOne({ username })
-    if (existingUser) {
-      return res.status(400).json({ error: "Username is already taken" })
-    }
-
-    // Hash the password
-    const passwordHash = await bcrypt.hash(password, 10)
-
-    // Create a new user
-    const newUser = new User({ username, passwordHash, name })
-    const savedUser = await newUser.save()
-    res.status(201).json({
-      username: savedUser.username,
-      name: savedUser.name,
-      _id: savedUser._id,
+    // Create a new blog with the user as the creator
+    const newBlog = new Blog({
+      title,
+      author,
+      url,
+      likes,
+      user: req.user.id, // Set the user ID as the creator of the blog
     })
+
+    // Save the new blog to the database
+    const savedBlog = await newBlog.save()
+
+    // Return the newly created blog
+    res.status(201).json(savedBlog)
   } catch (error) {
-    console.error("Error creating user:", error)
+    console.error("Error creating blog:", error)
     res.status(500).json({ error: "Internal server error" })
   }
 })
 
-// Route to handle user login
-router.post("/api/login", async (req, res) => {
-  const { username, password } = req.body
-
-  try {
-    // Find the user by username
-    const user = await User.findOne({ username })
-    if (!user) {
-      return res.status(401).json({ error: "Invalid username or password" })
-    }
-
-    // Compare the provided password with the hashed password stored in the database
-    const passwordCorrect = await bcrypt.compare(password, user.passwordHash)
-    if (!passwordCorrect) {
-      return res.status(401).json({ error: "Invalid username or password" })
-    }
-
-    // If username and password are correct, generate a JWT token
-    const token = jwt.sign(
-      { username: user.username, id: user._id },
-      process.env.JWT_SECRET
-    )
-
-    // Send the token along with user information in the response
-    res.status(200).json({
-      token,
-      username: user.username,
-      name: user.name,
-    })
-  } catch (error) {
-    console.error("Error logging in:", error)
-    res.status(500).json({ error: "Internal server error" })
-  }
-})
-
-// Route to get details of all users
-router.get("/api/users", async (req, res) => {
+// Route to get details of all users (protected route)
+router.get("/api/users", authenticateToken, async (req, res) => {
   try {
     // Fetch all users from the database
     const users = await User.find()

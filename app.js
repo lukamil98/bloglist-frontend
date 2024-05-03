@@ -1,12 +1,19 @@
 const express = require("express")
 const jwt = require("jsonwebtoken")
-const app = express()
+const bodyParser = require("body-parser") // Import body-parser middleware
 const logger = require("./utils/logger")
 const config = require("./utils/config")
 const mongoose = require("mongoose")
 const Blog = require("./models/blog")
 const User = require("./models/user")
 const userRoutes = require("./userRoutes")
+const loginRouter = require("./controllers/login")
+require("dotenv").config()
+
+const app = express()
+
+// Middleware for parsing JSON data
+app.use(bodyParser.json())
 
 // MongoDB connection
 mongoose
@@ -20,9 +27,6 @@ mongoose
   .catch((error) => {
     logger.error("Error connecting to MongoDB:", error)
   })
-
-// Middleware
-app.use(express.json())
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -78,6 +82,8 @@ app.get("/api/blogs", async (req, res) => {
     res.status(500).json({ error: "Internal server error" })
   }
 })
+// Use the loginRouter with the specified endpoint
+app.use("/api/login", loginRouter)
 
 app.use(userRoutes)
 
