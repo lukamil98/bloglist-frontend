@@ -1,0 +1,10 @@
+post http://localhost:3003/api/blogs
+Content-type: application/json
+Authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkRyYWdvVCIsImlkIjoiNjYzMzg4Yzk1ZGUzZTZlMzdiZGM2Y2IzIiwiaWF0IjoxNzE0ODIzODAzLCJleHAiOjE3MTQ4Mjc0MDN9.iFrrjVHJ9qCfb9vw3vLGIg504EK3uVpgKaAsX5qSj9U
+
+{
+    "title":"Dragos Test",
+    "author":"DragoT",
+    "url":"https://example.com/dragos-blog-post",
+    "likes":"4"
+}

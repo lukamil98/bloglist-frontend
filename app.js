@@ -1,15 +1,15 @@
+require("dotenv").config()
+
 const express = require("express")
 const jwt = require("jsonwebtoken")
-const bodyParser = require("body-parser") // Import body-parser middleware
+const bodyParser = require("body-parser")
 const logger = require("./utils/logger")
 const config = require("./utils/config")
 const mongoose = require("mongoose")
 const Blog = require("./models/blog")
-const User = require("./models/user")
-const userRoutes = require("./userRoutes")
-const loginRouter = require("./controllers/login")
-require("dotenv").config()
-
+const userRoutes = require("./controllers/userRoutes")
+const loginRouter = require("./controllers/login") 
+const blogsRouter = require("./controllers/blogs") 
 const app = express()
 
 // Middleware for parsing JSON data
@@ -26,6 +26,7 @@ mongoose
   })
   .catch((error) => {
     logger.error("Error connecting to MongoDB:", error)
+    process.exit(1)
   })
 
 // Authentication middleware
@@ -36,7 +37,7 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: "Token missing" })
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, process.env.SECRET, (err, user) => {
     if (err) {
       return res.status(403).json({ error: "Invalid token" })
     }
@@ -47,22 +48,17 @@ const authenticateToken = (req, res, next) => {
 
 // Define the route handler for POST /api/blogs
 app.post("/api/blogs", authenticateToken, async (req, res) => {
-  const { title, author, url, likes } = req.body
-
   try {
-    // Create a new blog with the user as the creator
+    const { title, author, url, likes } = req.body
+    const userId = req.user.id // Extract the user ID from the token
     const newBlog = new Blog({
       title,
       author,
       url,
       likes,
-      user: req.user.id, // Use the user ID extracted from the token
+      user: userId, // Assign the user ID as the creator of the blog
     })
-
-    // Save the new blog to the database
     const savedBlog = await newBlog.save()
-
-    // Return the newly created blog
     res.status(201).json(savedBlog)
   } catch (error) {
     console.error("Error creating blog:", error)
@@ -70,21 +66,21 @@ app.post("/api/blogs", authenticateToken, async (req, res) => {
   }
 })
 
-// Define the route handler for GET /api/blogs
-app.get("/api/blogs", async (req, res) => {
-  try {
-    // Fetch the list of blogs from the database
-    const blogs = await Blog.find({}).populate("creator", "username")
-
-    res.json(blogs)
-  } catch (error) {
-    logger.error("Error fetching blogs:", error)
-    res.status(500).json({ error: "Internal server error" })
-  }
-})
 // Use the loginRouter with the specified endpoint
 app.use("/api/login", loginRouter)
 
+// Use the userRoutes with the specified endpoint
 app.use(userRoutes)
+
+// Use the blogsRouter with the specified endpoint
+app.use("/api/blogs", blogsRouter)
+
+// Define custom error handling middleware
+const errorHandler = (err, req, res, next) => {
+  // Your error handling logic
+}
+
+// Register the custom error handling middleware
+app.use(errorHandler)
 
 module.exports = app
